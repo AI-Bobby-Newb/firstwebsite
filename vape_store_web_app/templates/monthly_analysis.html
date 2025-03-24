@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monthly Analysis - Vape Store Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="logo-container">
+                <h2>Vape Store</h2>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li class="active"><a href="/monthly_analysis"><i class="fas fa-chart-line"></i> Monthly Analysis</a></li>
+                <li><a href="/product_analysis"><i class="fas fa-box"></i> Product Analysis</a></li>
+                <li><a href="/category_analysis"><i class="fas fa-tags"></i> Category Analysis</a></li>
+                <li><a href="/top_products"><i class="fas fa-trophy"></i> Top Products</a></li>
+                <li><a href="/business_insights"><i class="fas fa-lightbulb"></i> Business Insights</a></li>
+            </ul>
+            <div class="data-quality">
+                <div class="quality-score">
+                    <div class="score-circle" style="--percent: {{ quality_score }}%">
+                        <span>{{ quality_score }}%</span>
+                    </div>
+                    <h4>Data Quality</h4>
+                </div>
+                {% if quality_warnings %}
+                <div class="quality-warnings">
+                    <h5>Warnings:</h5>
+                    <ul>
+                        {% for warning in quality_warnings %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </nav>
+
+        <main class="content">
+            <header>
+                <div class="header-content">
+                    <h1>Monthly Sales Analysis</h1>
+                    <div class="time-period">
+                        <span>Data Period: </span>
+                        {% if months %}
+                        <span class="highlight">{{ months[0] }} - {{ months[-1] }}</span>
+                        {% else %}
+                        <span class="highlight">No data available</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </header>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h2>Monthly Sales Trend</h2>
+                    <canvas id="monthlySalesChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h2>Units Sold by Month</h2>
+                    <canvas id="monthlyUnitsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h2>Month-over-Month Growth (Sales)</h2>
+                    <canvas id="growthSalesChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h2>Month-over-Month Growth (Units)</h2>
+                    <canvas id="growthUnitsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="table-container full-width">
+                <h2>Monthly Performance Data</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Net Sales</th>
+                            <th>Units Sold</th>
+                            <th>Sales Growth</th>
+                            <th>Units Growth</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for data in monthly_data %}
+                        <tr>
+                            <td>{{ data.Month }}</td>
+                            <td>${{ "{:,.2f}".format(data.Net_Sales) }}</td>
+                            <td>{{ "{:,}".format(data.Sold) }}</td>
+                            <td class="{{ 'positive' if data.Sales_Growth and data.Sales_Growth > 0 else 'negative' if data.Sales_Growth and data.Sales_Growth < 0 else '' }}">
+                                {% if data.Sales_Growth %}
+                                {{ "{:+.1f}%".format(data.Sales_Growth) }}
+                                {% else %}
+                                --
+                                {% endif %}
+                            </td>
+                            <td class="{{ 'positive' if data.Units_Growth and data.Units_Growth > 0 else 'negative' if data.Units_Growth and data.Units_Growth < 0 else '' }}">
+                                {% if data.Units_Growth %}
+                                {{ "{:+.1f}%".format(data.Units_Growth) }}
+                                {% else %}
+                                --
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-arrow-trend-up"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Best Sales Month</h3>
+                        {% set best_sales = monthly_data|sort(attribute='Net_Sales', reverse=True)|first %}
+                        {% if best_sales %}
+                        <p class="stat-value">{{ best_sales.Month }}</p>
+                        <p class="stat-subtext">${{ "{:,.2f}".format(best_sales.Net_Sales) }}</p>
+                        {% else %}
+                        <p class="stat-value">No data</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-arrow-trend-down"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Worst Sales Month</h3>
+                        {% set worst_sales = monthly_data|sort(attribute='Net_Sales')|first %}
+                        {% if worst_sales %}
+                        <p class="stat-value">{{ worst_sales.Month }}</p>
+                        <p class="stat-subtext">${{ "{:,.2f}".format(worst_sales.Net_Sales) }}</p>
+                        {% else %}
+                        <p class="stat-value">No data</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Average Monthly Sales</h3>
+                        {% if monthly_data %}
+                        {% set avg_sales = monthly_data|map(attribute='Net_Sales')|sum / monthly_data|length %}
+                        <p class="stat-value">${{ "{:,.2f}".format(avg_sales) }}</p>
+                        {% else %}
+                        <p class="stat-value">No data</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-percent"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Average Growth</h3>
+                        {% if monthly_data|selectattr('Sales_Growth', 'defined')|list|length > 0 %}
+                        {% set avg_growth = monthly_data|selectattr('Sales_Growth', 'defined')|map(attribute='Sales_Growth')|sum / monthly_data|selectattr('Sales_Growth', 'defined')|list|length %}
+                        <p class="stat-value {{ 'positive' if avg_growth > 0 else 'negative' if avg_growth < 0 else '' }}">
+                            {{ "{:+.1f}%".format(avg_growth) }}
+                        </p>
+                        {% else %}
+                        <p class="stat-value">No data</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Monthly Sales Chart
+            const monthlySalesCtx = document.getElementById('monthlySalesChart').getContext('2d');
+            const monthlySalesChart = new Chart(monthlySalesCtx, {
+                type: 'line',
+                data: {
+                    labels: [{% for data in monthly_data %}'{{ data.Month }}',{% endfor %}],
+                    datasets: [{
+                        label: 'Net Sales ($)',
+                        data: [{% for data in monthly_data %}{{ data.Net_Sales }},{% endfor %}],
+                        borderColor: '#4A6FDC',
+                        backgroundColor: 'rgba(74, 111, 220, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Sales: $${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Monthly Units Chart
+            const monthlyUnitsCtx = document.getElementById('monthlyUnitsChart').getContext('2d');
+            const monthlyUnitsChart = new Chart(monthlyUnitsCtx, {
+                type: 'bar',
+                data: {
+                    labels: [{% for data in monthly_data %}'{{ data.Month }}',{% endfor %}],
+                    datasets: [{
+                        label: 'Units Sold',
+                        data: [{% for data in monthly_data %}{{ data.Sold }},{% endfor %}],
+                        backgroundColor: 'rgba(52, 199, 89, 0.7)',
+                        borderColor: 'rgba(52, 199, 89, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Growth Sales Chart
+            const growthSalesCtx = document.getElementById('growthSalesChart').getContext('2d');
+            const growthSalesChart = new Chart(growthSalesCtx, {
+                type: 'bar',
+                data: {
+                    labels: [{% for data in monthly_data %}{% if data.Sales_Growth %}'{{ data.Month }}',{% endif %}{% endfor %}],
+                    datasets: [{
+                        label: 'Sales Growth (%)',
+                        data: [{% for data in monthly_data %}{% if data.Sales_Growth %}{{ data.Sales_Growth }},{% endif %}{% endfor %}],
+                        backgroundColor: function(context) {
+                            const value = context.dataset.data[context.dataIndex];
+                            return value >= 0 ? 'rgba(52, 199, 89, 0.7)' : 'rgba(255, 69, 58, 0.7)';
+                        },
+                        borderColor: function(context) {
+                            const value = context.dataset.data[context.dataIndex];
+                            return value >= 0 ? 'rgba(52, 199, 89, 1)' : 'rgba(255, 69, 58, 1)';
+                        },
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Growth Units Chart
+            const growthUnitsCtx = document.getElementById('growthUnitsChart').getContext('2d');
+            const growthUnitsChart = new Chart(growthUnitsCtx, {
+                type: 'bar',
+                data: {
+                    labels: [{% for data in monthly_data %}{% if data.Units_Growth %}'{{ data.Month }}',{% endif %}{% endfor %}],
+                    datasets: [{
+                        label: 'Units Growth (%)',
+                        data: [{% for data in monthly_data %}{% if data.Units_Growth %}{{ data.Units_Growth }},{% endif %}{% endfor %}],
+                        backgroundColor: function(context) {
+                            const value = context.dataset.data[context.dataIndex];
+                            return value >= 0 ? 'rgba(52, 199, 89, 0.7)' : 'rgba(255, 69, 58, 0.7)';
+                        },
+                        borderColor: function(context) {
+                            const value = context.dataset.data[context.dataIndex];
+                            return value >= 0 ? 'rgba(52, 199, 89, 1)' : 'rgba(255, 69, 58, 1)';
+                        },
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function(value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

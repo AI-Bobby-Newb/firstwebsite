@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Analysis - Vape Store Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="logo-container">
+                <h2>Vape Store</h2>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="/monthly_analysis"><i class="fas fa-chart-line"></i> Monthly Analysis</a></li>
+                <li class="active"><a href="/product_analysis"><i class="fas fa-box"></i> Product Analysis</a></li>
+                <li><a href="/category_analysis"><i class="fas fa-tags"></i> Category Analysis</a></li>
+                <li><a href="/top_products"><i class="fas fa-trophy"></i> Top Products</a></li>
+                <li><a href="/business_insights"><i class="fas fa-lightbulb"></i> Business Insights</a></li>
+            </ul>
+            <div class="data-quality">
+                <div class="quality-score">
+                    <div class="score-circle" style="--percent: {{ quality_score }}%">
+                        <span>{{ quality_score }}%</span>
+                    </div>
+                    <h4>Data Quality</h4>
+                </div>
+                {% if quality_warnings %}
+                <div class="quality-warnings">
+                    <h5>Warnings:</h5>
+                    <ul>
+                        {% for warning in quality_warnings %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </nav>
+
+        <main class="content">
+            <header>
+                <div class="header-content">
+                    <h1>Product Analysis</h1>
+                    <div class="time-period">
+                        <span>Data Period: </span>
+                        {% if months %}
+                        <span class="highlight">{{ months[0] }} - {{ months[-1] }}</span>
+                        {% else %}
+                        <span class="highlight">No data available</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </header>
+
+            <div class="dashboard-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Top Performer</h3>
+                        {% if top_products|length > 0 %}
+                        <p class="stat-value">{{ top_products[0].Name }}</p>
+                        <p class="stat-subtext">${{ "{:,.2f}".format(top_products[0].Net_Sales) }}</p>
+                        {% else %}
+                        <p class="stat-value">No data</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-dollar-sign"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Highest Price</h3>
+                        {% if product_perf|length > 0 %}
+                        {% set highest_price = product_perf|sort(attribute='Avg_Price', reverse=True)|first %}
+                        <p class="stat-value">{{ highest_price.Name }}</p>
+                        <p class="stat-subtext">${{ "{:.2f}".format(highest_price.Avg_Price) }}</p>
+                        {% else %}
+                        <p class="stat-value">No data</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-truck"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Most Units Sold</h3>
+                        {% if product_perf|length > 0 %}
+                        {% set most_units = product_perf|sort(attribute='Sold', reverse=True)|first %}
+                        <p class="stat-value">{{ most_units.Name }}</p>
+                        <p class="stat-subtext">{{ "{:,}".format(most_units.Sold) }} units</p>
+                        {% else %}
+                        <p class="stat-value">No data</p>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-boxes-stacked"></i>
+                    </div>
+                    <div class="stat-details">
+                        <h3>Total Products</h3>
+                        {% if product_perf %}
+                        <p class="stat-value">{{ product_perf|length }}</p>
+                        {% else %}
+                        <p class="stat-value">0</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h2>Top 10 Products by Revenue</h2>
+                    <canvas id="topProductsChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h2>Top 10 Products by Units Sold</h2>
+                    <canvas id="topUnitsChart"></canvas>
+                </div>
+            </div>
+
+            <div class="filter-controls">
+                <h2>Product Performance</h2>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="categoryFilter">Category:</label>
+                        <select id="categoryFilter">
+                            <option value="all">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category }}">{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sortOrder">Sort By:</label>
+                        <select id="sortOrder">
+                            <option value="revenue">Revenue (High to Low)</option>
+                            <option value="units">Units Sold (High to Low)</option>
+                            <option value="price">Price (High to Low)</option>
+                            <option value="name">Product Name (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-container full-width">
+                <table id="productTable" class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Category</th>
+                            <th>Revenue</th>
+                            <th>Units Sold</th>
+                            <th>Avg. Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for product in product_perf %}
+                        <tr data-category="{{ product.Category_Name }}">
+                            <td>{{ product.Name }}</td>
+                            <td>{{ product.Category_Name }}</td>
+                            <td>${{ "{:,.2f}".format(product.Net_Sales) }}</td>
+                            <td>{{ "{:,}".format(product.Sold) }}</td>
+                            <td>${{ "{:.2f}".format(product.Avg_Price) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Top Products Revenue Chart
+            const topProductsCtx = document.getElementById('topProductsChart').getContext('2d');
+            const topProductsChart = new Chart(topProductsCtx, {
+                type: 'bar',
+                data: {
+                    labels: [{% for product in top_products[:10] %}'{{ product.Name }}',{% endfor %}],
+                    datasets: [{
+                        label: 'Revenue ($)',
+                        data: [{% for product in top_products[:10] %}{{ product.Net_Sales }},{% endfor %}],
+                        backgroundColor: 'rgba(74, 111, 220, 0.7)',
+                        borderColor: 'rgba(74, 111, 220, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `Revenue: $${context.raw.toFixed(2)}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Top Products Units Chart
+            const topUnitProductsData = {{ product_perf|sort(attribute='Sold', reverse=True)|map(attribute=['Name', 'Sold'])|list|tojson }};
+            const topUnitsCtx = document.getElementById('topUnitsChart').getContext('2d');
+            const topUnitsChart = new Chart(topUnitsCtx, {
+                type: 'bar',
+                data: {
+                    labels: topUnitProductsData.slice(0, 10).map(item => item[0]),
+                    datasets: [{
+                        label: 'Units Sold',
+                        data: topUnitProductsData.slice(0, 10).map(item => item[1]),
+                        backgroundColor: 'rgba(52, 199, 89, 0.7)',
+                        borderColor: 'rgba(52, 199, 89, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Filter functionality
+            const categoryFilter = document.getElementById('categoryFilter');
+            const sortOrder = document.getElementById('sortOrder');
+            const productTable = document.getElementById('productTable');
+            
+            function filterAndSortTable() {
+                const category = categoryFilter.value;
+                const sort = sortOrder.value;
+                
+                const rows = Array.from(productTable.querySelectorAll('tbody tr'));
+                
+                // Filter rows
+                rows.forEach(row => {
+                    if (category === 'all' || row.dataset.category === category) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                // Sort visible rows
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    if (sort === 'revenue') {
+                        const aValue = parseFloat(a.cells[2].textContent.replace(/[^0-9.-]+/g, ''));
+                        const bValue = parseFloat(b.cells[2].textContent.replace(/[^0-9.-]+/g, ''));
+                        return bValue - aValue;
+                    } else if (sort === 'units') {
+                        const aValue = parseInt(a.cells[3].textContent.replace(/[^0-9]+/g, ''));
+                        const bValue = parseInt(b.cells[3].textContent.replace(/[^0-9]+/g, ''));
+                        return bValue - aValue;
+                    } else if (sort === 'price') {
+                        const aValue = parseFloat(a.cells[4].textContent.replace(/[^0-9.-]+/g, ''));
+                        const bValue = parseFloat(b.cells[4].textContent.replace(/[^0-9.-]+/g, ''));
+                        return bValue - aValue;
+                    } else if (sort === 'name') {
+                        return a.cells[0].textContent.localeCompare(b.cells[0].textContent);
+                    }
+                    return 0;
+                });
+                
+                // Reorder the table
+                const tbody = productTable.querySelector('tbody');
+                visibleRows.forEach(row => tbody.appendChild(row));
+            }
+            
+            categoryFilter.addEventListener('change', filterAndSortTable);
+            sortOrder.addEventListener('change', filterAndSortTable);
+            
+            // Initial filter and sort
+            filterAndSortTable();
+        });
+    </script>
+</body>
+</html>

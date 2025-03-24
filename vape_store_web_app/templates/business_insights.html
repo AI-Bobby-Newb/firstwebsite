@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Insights - Vape Store Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="logo-container">
+                <h2>Vape Store</h2>
+            </div>
+            <ul class="nav-links">
+                <li><a href="/"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="/monthly_analysis"><i class="fas fa-chart-line"></i> Monthly Analysis</a></li>
+                <li><a href="/product_analysis"><i class="fas fa-box"></i> Product Analysis</a></li>
+                <li><a href="/category_analysis"><i class="fas fa-tags"></i> Category Analysis</a></li>
+                <li><a href="/top_products"><i class="fas fa-trophy"></i> Top Products</a></li>
+                <li class="active"><a href="/business_insights"><i class="fas fa-lightbulb"></i> Business Insights</a></li>
+            </ul>
+            <div class="data-quality">
+                <div class="quality-score">
+                    <div class="score-circle" style="--percent: {{ quality_score }}%">
+                        <span>{{ quality_score }}%</span>
+                    </div>
+                    <h4>Data Quality</h4>
+                </div>
+                {% if quality_warnings %}
+                <div class="quality-warnings">
+                    <h5>Warnings:</h5>
+                    <ul>
+                        {% for warning in quality_warnings %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+            </div>
+        </nav>
+
+        <main class="content">
+            <header>
+                <div class="header-content">
+                    <h1>Business Insights</h1>
+                    <div class="time-period">
+                        <span>Data Period: </span>
+                        {% if months %}
+                        <span class="highlight">{{ months[0] }} - {{ months[-1] }}</span>
+                        {% else %}
+                        <span class="highlight">No data available</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </header>
+
+            <!-- Executive Summary -->
+            <div class="insight-section">
+                <h2><i class="fas fa-chart-pie"></i> Executive Summary</h2>
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-dollar-sign"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Total Revenue</h3>
+                            <p class="stat-value">${{ "{:,.2f}".format(total_revenue) }}</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Units Sold</h3>
+                            <p class="stat-value">{{ "{:,}".format(total_units) }}</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-tag"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Avg Price</h3>
+                            <p class="stat-value">${{ "{:.2f}".format(avg_price) }}</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="fas fa-list"></i>
+                        </div>
+                        <div class="stat-details">
+                            <h3>Products</h3>
+                            <p class="stat-value">{{ total_products }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Key Performance Indicators -->
+            <div class="insight-section">
+                <h2><i class="fas fa-tachometer-alt"></i> Key Performance Indicators</h2>
+                
+                <div class="charts-grid">
+                    <!-- Revenue Distribution Chart -->
+                    <div class="chart-container">
+                        <h3>Revenue Distribution</h3>
+                        <canvas id="revenueDistributionChart"></canvas>
+                    </div>
+                    
+                    <!-- Price Distribution Chart -->
+                    <div class="chart-container">
+                        <h3>Price Distribution</h3>
+                        <canvas id="priceDistributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product Performance Analysis -->
+            <div class="insight-section">
+                <h2><i class="fas fa-box-open"></i> Product Performance Analysis</h2>
+                
+                <div class="insight-cards">
+                    <!-- Top 5 Products by Revenue Share -->
+                    <div class="insight-card">
+                        <h3>Top 5 Products by Revenue Share</h3>
+                        <div class="progress-bars">
+                            {% for product in product_metrics|sort(attribute='Revenue_Share', reverse=True)[:5] %}
+                            <div class="progress-item">
+                                <div class="progress-label">
+                                    <span>{{ product.Name }}</span>
+                                    <span>{{ "{:.1f}%".format(product.Revenue_Share) }}</span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress" style="width: {{ product.Revenue_Share }}%;"></div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <!-- Product Pricing Tiers -->
+                    <div class="insight-card">
+                        <h3>Product Pricing Tiers</h3>
+                        <canvas id="pricingTiersChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Product Matrix -->
+                <div class="product-matrix">
+                    <h3>Product Performance Matrix</h3>
+                    <p>This matrix shows the performance of products by comparing revenue vs. revenue share.</p>
+                    <canvas id="productMatrixChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Business Recommendations -->
+            <div class="insight-section">
+                <h2><i class="fas fa-lightbulb"></i> Business Recommendations</h2>
+                
+                <div class="recommendation-cards">
+                    <!-- Top Performers -->
+                    <div class="recommendation-card">
+                        <div class="recommendation-icon">
+                            <i class="fas fa-arrow-trend-up"></i>
+                        </div>
+                        <div class="recommendation-content">
+                            <h3>Promote Top Performers</h3>
+                            <p>Focus marketing efforts on your top-performing products that contribute significantly to revenue:</p>
+                            <ul>
+                                {% for product in product_metrics|sort(attribute='Net_Sales', reverse=True)[:3] %}
+                                <li><strong>{{ product.Name }}</strong>: ${{ "{:,.2f}".format(product.Net_Sales) }} ({{ "{:.1f}%".format(product.Revenue_Share) }} of revenue)</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Price Optimization -->
+                    <div class="recommendation-card">
+                        <div class="recommendation-icon">
+                            <i class="fas fa-tags"></i>
+                        </div>
+                        <div class="recommendation-content">
+                            <h3>Price Optimization Opportunities</h3>
+                            <p>Consider price adjustments for these high-volume products to maximize revenue:</p>
+                            <ul>
+                                {% for product in product_metrics|sort(attribute='Sold', reverse=True)[:3] %}
+                                <li><strong>{{ product.Name }}</strong>: {{ "{:,}".format(product.Sold) }} units sold at ${{ "{:.2f}".format(product.Avg_Price) }} average price</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Inventory Management -->
+                    <div class="recommendation-card">
+                        <div class="recommendation-icon">
+                            <i class="fas fa-boxes-stacked"></i>
+                        </div>
+                        <div class="recommendation-content">
+                            <h3>Inventory Focus</h3>
+                            <p>Ensure optimal inventory levels for these high-revenue products:</p>
+                            <ul>
+                                {% for product in product_metrics|sort(attribute='Net_Sales', reverse=True)[:3] %}
+                                <li><strong>{{ product.Name }}</strong> ({{ product.Category_Name }})</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Product List Table -->
+            <div class="insight-section">
+                <h2><i class="fas fa-table"></i> Product Performance Data</h2>
+                
+                <div class="table-container full-width">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Product Name</th>
+                                <th>Category</th>
+                                <th>Revenue</th>
+                                <th>Units Sold</th>
+                                <th>Avg Price</th>
+                                <th>Revenue Share</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for product in product_metrics|sort(attribute='Net_Sales', reverse=True)[:20] %}
+                            <tr>
+                                <td>{{ product.Name }}</td>
+                                <td>{{ product.Category_Name }}</td>
+                                <td>${{ "{:,.2f}".format(product.Net_Sales) }}</td>
+                                <td>{{ "{:,}".format(product.Sold) }}</td>
+                                <td>${{ "{:.2f}".format(product.Avg_Price) }}</td>
+                                <td>{{ "{:.1f}%".format(product.Revenue_Share) }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="available-periods">
+                <h3>Available Data Periods</h3>
+                <div class="timeline">
+                    {% for year, months in years_dict.items() %}
+                    <div class="year-group">
+                        <div class="year">{{ year }}</div>
+                        <div class="months">
+                            {% for month in months %}
+                            <div class="month">{{ month }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Revenue Distribution Chart - Top 5 vs Others
+            const revenueDistributionCtx = document.getElementById('revenueDistributionChart').getContext('2d');
+            
+            // Get top 5 products and sum of others
+            const productMetrics = [
+                {% for product in product_metrics|sort(attribute='Net_Sales', reverse=True) %}
+                {
+                    name: "{{ product.Name }}",
+                    revenue: {{ product.Net_Sales }},
+                    revenueShare: {{ product.Revenue_Share }}
+                },
+                {% endfor %}
+            ];
+            
+            const top5Products = productMetrics.slice(0, 5);
+            const othersRevenue = productMetrics.slice(5).reduce((sum, product) => sum + product.revenue, 0);
+            const totalRevenue = productMetrics.reduce((sum, product) => sum + product.revenue, 0);
+            const othersShare = (othersRevenue / totalRevenue) * 100;
+            
+            const revenueDistributionChart = new Chart(revenueDistributionCtx, {
+                type: 'pie',
+                data: {
+                    labels: [
+                        ...top5Products.map(p => p.name),
+                        'Others'
+                    ],
+                    datasets: [{
+                        data: [
+                            ...top5Products.map(p => p.revenue),
+                            othersRevenue
+                        ],
+                        backgroundColor: [
+                            '#4A6FDC', '#6C8EE3', '#8FACEA', '#B1CAF1', '#D3E9F8',
+                            '#CCCCCC'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const percentage = ((value / totalRevenue) * 100).toFixed(1);
+                                    return `$${value.toLocaleString()} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Price Distribution Chart
+            const priceDistributionCtx = document.getElementById('priceDistributionChart').getContext('2d');
+            
+            // Create price distribution data
+            const priceTiers = [
+                { label: '$0-$10', count: 0 },
+                { label: '$10-$20', count: 0 },
+                { label: '$20-$30', count: 0 },
+                { label: '$30-$40', count: 0 },
+                { label: '$40-$50', count: 0 },
+                { label: '$50+', count: 0 }
+            ];
+            
+            productMetrics.forEach(product => {
+                const price = product.revenue / (product.revenueShare * totalRevenue / 100);
+                if (price < 10) priceTiers[0].count++;
+                else if (price < 20) priceTiers[1].count++;
+                else if (price < 30) priceTiers[2].count++;
+                else if (price < 40) priceTiers[3].count++;
+                else if (price < 50) priceTiers[4].count++;
+                else priceTiers[5].count++;
+            });
+            
+            const priceDistributionChart = new Chart(priceDistributionCtx, {
+                type: 'bar',
+                data: {
+                    labels: priceTiers.map(tier => tier.label),
+                    datasets: [{
+                        label: 'Number of Products',
+                        data: priceTiers.map(tier => tier.count),
+                        backgroundColor: '#4A6FDC',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Number of Products'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Price Range'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Product Pricing Tiers Chart
+            const pricingTiersCtx = document.getElementById('pricingTiersChart').getContext('2d');
+            
+            // Calculate pricing tiers
+            const productsByPrice = [
+                { label: 'Budget (<$15)', count: 0, revenue: 0 },
+                { label: 'Mid-range ($15-$30)', count: 0, revenue: 0 },
+                { label: 'Premium ($30-$50)', count: 0, revenue: 0 },
+                { label: 'Luxury ($50+)', count: 0, revenue: 0 }
+            ];
+            
+            productMetrics.forEach(product => {
+                // Use actual Avg_Price if available from product_metrics
+                const avgPrice = product.revenue / (product.revenueShare * totalRevenue / 100);
+                
+                if (avgPrice < 15) {
+                    productsByPrice[0].count++;
+                    productsByPrice[0].revenue += product.revenue;
+                }
+                else if (avgPrice < 30) {
+                    productsByPrice[1].count++;
+                    productsByPrice[1].revenue += product.revenue;
+                }
+                else if (avgPrice < 50) {
+                    productsByPrice[2].count++;
+                    productsByPrice[2].revenue += product.revenue;
+                }
+                else {
+                    productsByPrice[3].count++;
+                    productsByPrice[3].revenue += product.revenue;
+                }
+            });
+            
+            const pricingTiersChart = new Chart(pricingTiersCtx, {
+                type: 'bar',
+                data: {
+                    labels: productsByPrice.map(tier => tier.label),
+                    datasets: [
+                        {
+                            label: 'Product Count',
+                            data: productsByPrice.map(tier => tier.count),
+                            backgroundColor: '#4A6FDC',
+                            borderWidth: 1,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Revenue',
+                            data: productsByPrice.map(tier => tier.revenue),
+                            backgroundColor: '#FF6B6B',
+                            borderWidth: 1,
+                            type: 'line',
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Product Count'
+                            }
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false
+                            },
+                            title: {
+                                display: true,
+                                text: 'Revenue ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Product Matrix Chart (Scatter Plot)
+            const productMatrixCtx = document.getElementById('productMatrixChart').getContext('2d');
+            
+            // Prepare data for scatter plot - top 30 products
+            const scatterData = productMetrics.slice(0, 30).map(product => ({
+                x: product.revenue,
+                y: product.revenueShare,
+                name: product.name
+            }));
+            
+            const productMatrixChart = new Chart(productMatrixCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Products',
+                        data: scatterData,
+                        backgroundColor: '#4A6FDC',
+                        pointRadius: 8,
+                        pointHoverRadius: 10
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Revenue ($)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return '$' + value.toLocaleString();
+                                }
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Revenue Share (%)'
+                            },
+                            ticks: {
+                                callback: function(value) {
+                                    return value.toFixed(1) + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const point = context.raw;
+                                    return `${point.name}: $${point.x.toLocaleString()} (${point.y.toFixed(1)}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>
